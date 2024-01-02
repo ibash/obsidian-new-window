@@ -10,12 +10,81 @@ const DEFAULT_SETTINGS: MyPluginSettings = {
 	mySetting: 'default'
 }
 
+
+/*
+z = window.require('electron')
+//y = new z.remote.BrowserWindow()
+
+
+opt = {
+  width: 800,
+  height: 600,
+  minWidth: 200,
+  minHeight: 150,
+  backgroundColor: "#00000000",
+  trafficLightPosition: {
+    x: 19,
+    y: 12
+  },
+  show: !1,
+  frame: "native",
+  titleBarStyle: "default",
+  webPreferences: {
+    contextIsolation: !1,
+    nodeIntegration: !0,
+    nodeIntegrationInWorker: !0,
+    spellcheck: !0,
+    webviewTag: !0
+  },
+}
+
+
+y = new z.remote.BrowserWindow(opt)
+y.show()
+
+z.ipcRenderer.sendSync('vault-list')
+{
+    "2081afd8feedc2e6": {
+        "path": "/Users/islam/Vault",
+        "ts": 1704221217378,
+        "open": true
+    }
+}
+
+z.remote.ipcMain.removeAllListeners('vault')
+z.remote.ipcMain.on('vault', (t) => {
+  t.returnValue = {
+    id: '2081afd8feedc2e6',
+    path: '/Users/islam/Vault'
+  }
+})
+
+z.remote.require('@electron/remote/main').enable(y.webContents)
+*/
+
 export default class MyPlugin extends Plugin {
 	settings: MyPluginSettings;
 
 	async onload() {
 		await this.loadSettings();
 
+
+		this.addCommand({
+			id: 'new-window',
+			name: 'New Window (ibash)',
+			callback: this.openNewWindow
+//			callback: () => {
+//				console.log('yay')
+//				const electron = window.require('electron')
+//				console.log('electron', electron)
+//				//new SampleModal(this.app).open();
+//			}
+		});
+
+		this.patchVault()
+
+
+		/*
 		// This creates an icon in the left ribbon.
 		const ribbonIconEl = this.addRibbonIcon('dice', 'Sample Plugin', (evt: MouseEvent) => {
 			// Called when the user clicks the icon.
@@ -76,6 +145,7 @@ export default class MyPlugin extends Plugin {
 
 		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
 		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
+		*/
 	}
 
 	onunload() {
@@ -88,6 +158,50 @@ export default class MyPlugin extends Plugin {
 
 	async saveSettings() {
 		await this.saveData(this.settings);
+	}
+
+	patchVault = () => {
+		const electron = window.require('electron')
+		electron.remote.ipcMain.removeAllListeners('vault')
+		// TODO(ibash) get the vault from the "vault-list" sendSync event
+		electron.remote.ipcMain.on('vault', (t: any) => {
+			t.returnValue = {
+				id: '2081afd8feedc2e6',
+				path: '/Users/islam/Vault'
+			}
+		})
+	}
+
+
+	openNewWindow = () => {
+		const electron = window.require('electron')
+		const opt = {
+			width: 800,
+			height: 600,
+			minWidth: 200,
+			minHeight: 150,
+			backgroundColor: "#00000000",
+			trafficLightPosition: {
+				x: 19,
+				y: 12
+			},
+			show: !1,
+			frame: "native",
+			titleBarStyle: "default",
+			webPreferences: {
+				contextIsolation: !1,
+				nodeIntegration: !0,
+				nodeIntegrationInWorker: !0,
+				spellcheck: !0,
+				webviewTag: !0
+			},
+		}
+
+		const win = new electron.remote.BrowserWindow(opt)
+		electron.remote.require('@electron/remote/main').enable(win.webContents)
+		win.show()
+		win.loadURL(location.href)
+
 	}
 }
 
