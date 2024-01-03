@@ -1,107 +1,129 @@
-import { Plugin } from 'obsidian';
-
-// Remember to rename these classes and interfaces!
-
-interface MyPluginSettings {
-	//mySetting: string;
-}
-
-const DEFAULT_SETTINGS: MyPluginSettings = {
-	//mySetting: 'default'
-}
+import { Plugin } from 'obsidian'
 
 // This is a separate function because we serialize it and execute it in the
-// main process. 
+// main process.
 // We do this so that the listeners aren't proxy functions bound to the current
 // window, and instead live within the main process.
 function patchVault() {
-	const ipcMain = process.mainModule!.require('electron').ipcMain
-	const mapping: any = {}
+  const ipcMain = process.mainModule!.require('electron').ipcMain
+  const mapping: any = {}
 
-	ipcMain.addListener('set-vault', function(event: any, webContentsId: any, vault: any) {
-		mapping[webContentsId] = vault
-		event.returnValue = null
-		return
-	})
+  ipcMain.addListener(
+    'set-vault',
+    function (event: any, webContentsId: any, vault: any) {
+      mapping[webContentsId] = vault
+      event.returnValue = null
+      return
+    }
+  )
 
-	const fn = ipcMain.listeners('vault')[0]
-	ipcMain.removeAllListeners('vault')
-	ipcMain.addListener('vault', function(event: any) {
-		if (mapping[event.sender.id]) {
-			event.returnValue = mapping[event.sender.id]
-			return
-		}
-		return fn(event)
-	})
+  const fn = ipcMain.listeners('vault')[0]
+
+  // for unpatching later
+  ;(global as any).originalVaultListener = fn
+
+  ipcMain.removeAllListeners('vault')
+  ipcMain.addListener('vault', function (event: any) {
+    if (mapping[event.sender.id]) {
+      event.returnValue = mapping[event.sender.id]
+      return
+    }
+    return fn(event)
+  })
+}
+
+function unpatchVault() {
+  const fn = (global as any).originalVaultListener
+
+  if (!fn) {
+    return
+  }
+  delete (global as any).originalVaultListener
+
+  const ipcMain = process.mainModule!.require('electron').ipcMain
+
+  ipcMain.removeAllListeners('set-vault')
+  ipcMain.removeAllListeners('vault')
+  ipcMain.addListener('vault', fn)
 }
 
 export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings;
+  systemSettings: any = {}
 
-	async onload() {
-		// await this.loadSettings();
+  async onload() {
+    this.loadSystemSettings()
+    this.patchVault()
 
-		this.addCommand({
-			id: 'new-window',
-			name: 'New window',
-			callback: this.openNewWindow
-		});
+    this.addCommand({
+      id: 'new-window',
+      name: 'New window',
+      callback: this.openNewWindow
+    })
+  }
 
-		this.patchVault()
-	}
+  onunload() {
+    this.unpatchVault()
+  }
 
-	onunload() {
-		// TODO(ibash) cleanup the patch
-	}
+  // reads the obsidian.json file which contains options for how windows are
+  // displayed
+  loadSystemSettings() {
+    const electron = window.require('electron')
+    const fs = electron.remote.require('fs')
+    const path = electron.remote.require('path')
+    const app = electron.remote.app
 
-	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
-	}
+    const filepath = path.join(app.getPath('userData'), 'obsidian.json')
+    this.systemSettings = JSON.parse(
+      fs.readFileSync(filepath, { encoding: 'utf8' })
+    )
+  }
 
-	async saveSettings() {
-		await this.saveData(this.settings);
-	}
+  patchVault = () => {
+    const electron = window.require('electron')
+    electron.remote.getGlobal('eval')(`(${patchVault.toString()})()`)
+  }
 
-	patchVault = () => {
-		const electron = window.require('electron')
-		electron.remote.getGlobal('eval')(`(${patchVault.toString()})()`)
-	}
+  unpatchVault = () => {
+    const electron = window.require('electron')
+    electron.remote.getGlobal('eval')(`(${unpatchVault.toString()})()`)
+  }
 
+  openNewWindow = () => {
+    const electron = window.require('electron')
 
-	openNewWindow = () => {
-		const electron = window.require('electron')
-		const opt = {
-			width: 800,
-			height: 600,
-			minWidth: 200,
-			minHeight: 150,
-			backgroundColor: "#00000000",
-			trafficLightPosition: {
-				x: 19,
-				y: 12
-			},
-			show: false,
+    const isNativeFrame = this.systemSettings.frame === 'native'
+    const titleBarStyle = isNativeFrame ? 'default' : 'hidden'
 
-			// TODO(ibash) set frame and titleBarStyle to whatever obsidian sets
-			// it to ... is there a way to get it from the current window?
-			frame: "native",
-			titleBarStyle: "default",
-			webPreferences: {
-				contextIsolation: false,
-				nodeIntegration: true,
-				nodeIntegrationInWorker: true,
-				spellcheck: true,
-				webviewTag: true
-			},
-		}
+    const opt = {
+      width: 800,
+      height: 600,
+      minWidth: 200,
+      minHeight: 150,
+      backgroundColor: '#00000000',
+      trafficLightPosition: {
+        x: 19,
+        y: 12
+      },
+      show: false,
+      frame: isNativeFrame,
+      titleBarStyle: titleBarStyle,
+      webPreferences: {
+        contextIsolation: false,
+        nodeIntegration: true,
+        nodeIntegrationInWorker: true,
+        spellcheck: true,
+        webviewTag: true
+      }
+    }
 
-		const win = new electron.remote.BrowserWindow(opt)
-		electron.remote.require('@electron/remote/main').enable(win.webContents)
+    const win = new electron.remote.BrowserWindow(opt)
+    electron.remote.require('@electron/remote/main').enable(win.webContents)
 
-		const vault = electron.ipcRenderer.sendSync('vault')
-		electron.ipcRenderer.sendSync('set-vault', win.webContents.id, vault)
+    const vault = electron.ipcRenderer.sendSync('vault')
+    electron.ipcRenderer.sendSync('set-vault', win.webContents.id, vault)
 
-		win.show()
-		win.loadURL(location.href)
-	}
+    win.show()
+    win.loadURL(location.href)
+  }
 }

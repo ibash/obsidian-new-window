@@ -1,11 +1,11 @@
 {
-	"id": "new-window",
-	"name": "New Window",
-	"version": "1.0.0",
-	"minAppVersion": "0.15.0",
-	"description": "Enables opening new windows.",
-	"author": "Islam Sharabash",
-	"authorUrl": "https://iba.sh",
-	"fundingUrl": "https://obsidian.md/pricing",
-	"isDesktopOnly": true
+  "id": "new-window",
+  "name": "New Window",
+  "version": "1.0.0",
+  "minAppVersion": "0.15.0",
+  "description": "Enables opening new windows.",
+  "author": "Islam Sharabash",
+  "authorUrl": "https://iba.sh",
+  "fundingUrl": "https://obsidian.md/pricing",
+  "isDesktopOnly": true
 }
