@@ -1,5 +1,9 @@
 import { Plugin } from 'obsidian'
 
+declare global {
+  var originalVaultListener: any;
+}
+
 // This is a separate function because we serialize it and execute it in the
 // main process.
 // We do this so that the listeners aren't proxy functions bound to the current
@@ -20,7 +24,7 @@ function patchVault() {
   const fn = ipcMain.listeners('vault')[0]
 
   // for unpatching later
-  ;(global as any).originalVaultListener = fn
+  global.originalVaultListener = fn
 
   ipcMain.removeAllListeners('vault')
   ipcMain.addListener('vault', function (event: any) {
@@ -33,12 +37,12 @@ function patchVault() {
 }
 
 function unpatchVault() {
-  const fn = (global as any).originalVaultListener
+  const fn = global.originalVaultListener
 
   if (!fn) {
     return
   }
-  delete (global as any).originalVaultListener
+  delete global.originalVaultListener
 
   const ipcMain = process.mainModule!.require('electron').ipcMain
 
@@ -47,7 +51,7 @@ function unpatchVault() {
   ipcMain.addListener('vault', fn)
 }
 
-export default class MyPlugin extends Plugin {
+export default class NewWindowPlugin extends Plugin {
   systemSettings: any = {}
 
   async onload() {
@@ -55,7 +59,7 @@ export default class MyPlugin extends Plugin {
     this.patchVault()
 
     this.addCommand({
-      id: 'new-window',
+      id: 'open-new-window',
       name: 'New window',
       callback: this.openNewWindow
     })
