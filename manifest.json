@@ -3,7 +3,7 @@
   "name": "New Window",
   "version": "1.0.1",
   "minAppVersion": "0.15.0",
-  "description": "Enables opening new windows.",
+  "description": "Enables opening new windows that have panes like the main window.",
   "author": "Islam Sharabash",
   "authorUrl": "https://iba.sh",
   "isDesktopOnly": true
